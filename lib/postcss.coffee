@@ -6,6 +6,20 @@ Result         = require('./result')
 Rule           = require('./rule')
 Root           = require('./root')
 
+transform = (css, opts = { }) ->
+  parsed = if css instanceof Root
+    css
+  else if css instanceof Result
+    parsed = css.root
+  else
+    postcss.parse(css, opts)
+
+  for processor in @processors
+    returned = processor(parsed)
+    parsed   = returned if returned instanceof Root
+
+  parsed
+
 # List of functions to process CSS
 class PostCSS
   constructor: (@processors = []) ->
@@ -15,20 +29,19 @@ class PostCSS
     @processors.push(processor)
     this
 
-  # Process CSS throw installed processors
+  # Process CSS through installed processors and return a css Root
+  # that can be passed to more processors
+  transform: (css, opts = { }) ->
+    opts = convertOptions(opts)
+
+    transform(css, opts)
+
+  # Process CSS through installed processors and return a Result
+  # with the final css and optional map
   process: (css, opts = { }) ->
     opts = convertOptions(opts)
 
-    parsed = if css instanceof Root
-      css
-    else if css instanceof Result
-      parsed = css.root
-    else
-      postcss.parse(css, opts)
-
-    for processor in @processors
-      returned = processor(parsed)
-      parsed   = returned if returned instanceof Root
+    parsed = transform(css, opts)
 
     parsed.toResult(opts)
 
